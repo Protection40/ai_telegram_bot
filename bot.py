@@ -7,7 +7,7 @@ from telegram.ext import (
     filters
 )
 import os
-TELEGRAM_BOT_TOKEN = os.getenv("8254557308:AAFLMVHniy8ogrAqqzqQc3ZqHrDs2TmdHQk")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 from ai_service import chat_ai, generate_image
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
