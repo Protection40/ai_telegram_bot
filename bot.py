@@ -1,3 +1,7 @@
+import os
+import asyncio
+from dotenv import load_dotenv
+
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -7,57 +11,101 @@ from telegram.ext import (
     filters
 )
 from telegram.constants import ChatAction
-import os
-import asyncio
-from ai_service import chat_ai, generate_image
-from dotenv import load_dotenv
 
+from openai import OpenAI
+
+# =============================
 # تحميل المتغيرات من .env
-load_dotenv("/home/Nasro77/ai_telegram_bot/.env")  # ضع المسار الكامل إذا لزم الأمر
+# =============================
+load_dotenv()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # هذا يستخدم في ai_service
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# التأكد من تحميل المفاتيح
-print("TELEGRAM_BOT_TOKEN =", "✔ موجود" if TELEGRAM_BOT_TOKEN else "❌ غير موجود")
-print("OPENAI_API_KEY =", "✔ موجود" if OPENAI_API_KEY else "❌ غير موجود")
+if not TELEGRAM_BOT_TOKEN:
+    raise ValueError("❌ TELEGRAM_BOT_TOKEN غير موجود")
+if not OPENAI_API_KEY:
+    raise ValueError("❌ OPENAI_API_KEY غير موجود")
 
-# /start
+# =============================
+# OpenAI Client
+# =============================
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# =============================
+# AI Chat Function
+# =============================
+def chat_ai(message: str) -> str:
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "أنت مساعد ذكي، واضح، مختصر، ومفيد."
+                },
+                {
+                    "role": "user",
+                    "content": message
+                }
+            ],
+            temperature=0.7
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"❌ خطأ OpenAI: {e}"
+
+# =============================
+# AI Image Function
+# =============================
+def generate_image(prompt: str) -> str:
+    try:
+        image = client.images.generate(
+            model="gpt-image-1",
+            prompt=prompt,
+            size="1024x1024"
+        )
+        return image.data[0].url
+    except Exception as e:
+        return f"❌ خطأ توليد صورة: {e}"
+
+# =============================
+# Telegram Handlers
+# =============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 أهلاً! اسقسي أي سؤال.\n"
-        "🖼️ لتوليد صورة استعمل:\n"
+        "🤖 أهلاً!\n"
+        "اسقسي أي سؤال ✨\n\n"
+        "🖼️ توليد صورة:\n"
         "/img وصف الصورة"
     )
 
-# التعامل مع النصوص
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message.text
     await update.message.chat.send_action(ChatAction.TYPING)
+    msg = update.message.text
     loop = asyncio.get_event_loop()
     reply = await loop.run_in_executor(None, chat_ai, msg)
     await update.message.reply_text(reply)
 
-# توليد الصور
 async def image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("✍️ اكتب وصف الصورة بعد /img")
         return
+
     prompt = " ".join(context.args)
     await update.message.chat.send_action(ChatAction.UPLOAD_PHOTO)
     loop = asyncio.get_event_loop()
     img_url = await loop.run_in_executor(None, generate_image, prompt)
-    await update.message.reply_photo(img_url)
 
-# نقطة البداية
+    if img_url.startswith("http"):
+        await update.message.reply_photo(img_url)
+    else:
+        await update.message.reply_text(img_url)
+
+# =============================
+# Main
+# =============================
 def main():
-    if not TELEGRAM_BOT_TOKEN:
-        print("❌ خطأ: TELEGRAM_BOT_TOKEN غير موجود. تحقق من .env")
-        return
-    if not OPENAI_API_KEY:
-        print("❌ خطأ: OPENAI_API_KEY غير موجود. تحقق من .env")
-        return
-
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
