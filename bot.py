@@ -12,10 +12,15 @@ import asyncio
 from ai_service import chat_ai, generate_image
 from dotenv import load_dotenv
 
-# قراءة المتغيرات من ملف .env
-load_dotenv()
+# تحميل المتغيرات من .env
+load_dotenv("/home/Nasro77/ai_telegram_bot/.env")  # ضع المسار الكامل إذا لزم الأمر
+
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # إذا تحتاجه في ai_service
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # هذا يستخدم في ai_service
+
+# التأكد من تحميل المفاتيح
+print("TELEGRAM_BOT_TOKEN =", "✔ موجود" if TELEGRAM_BOT_TOKEN else "❌ غير موجود")
+print("OPENAI_API_KEY =", "✔ موجود" if OPENAI_API_KEY else "❌ غير موجود")
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -49,11 +54,12 @@ def main():
     if not TELEGRAM_BOT_TOKEN:
         print("❌ خطأ: TELEGRAM_BOT_TOKEN غير موجود. تحقق من .env")
         return
+    if not OPENAI_API_KEY:
+        print("❌ خطأ: OPENAI_API_KEY غير موجود. تحقق من .env")
+        return
 
-    # بناء التطبيق
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # إضافة الـ handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("img", image))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
